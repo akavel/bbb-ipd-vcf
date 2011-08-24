@@ -1,0 +1,32 @@
+This is a Blackberry IPD editor, most useful for editing service books.  It can
+convert an IPD to XML and back.  To make the XML more human readable, XSLT is
+used to translate fields to known names.  Unfortunately the human readable XMLs
+cannot be edited yet because someone needs to write "reverse" XSLTs (actually,
+it's very simple).  Thus, the intended use is to generate the human readable XML
+to see what to change, and then change it in the hex XML manually.  
+
+Apart from editing existing service book entries, this can be used to merge
+service books, delete entries, and add new ones.  (For some reason, by browsing
+on the Internet one can see much demand for this, though a lack of a tool that
+implements this rather trivial functionality.)
+
+This tool purposely has no GUI to keep it as simple and "stable" as possible.  A
+frontend GUI for editing the XML can be developed.
+
+Usage:
+bb -i backup.ipd -o backup.xml 
+bb -i backup.xml -o backup2.ipd
+md5sum backup.ipd backup2.ipd 
+
+For human readable output try:
+bb -i backup.ipd -o backup.xml -x sb.xsl -x sb2.xsl -x hrt.xsl 
+
+If adventurous, add this to the previous command line:
+-x app.xsl -x app2.xsl
+
+This software was tested on Linux, with IPDs from a Vodafone UK Bold, grabbed
+from Blackberry Desktop Manager 4.7.
+
+For support, e-mail: a.bittau@cs.ucl.ac.uk
+
+Fri Jul  3 19:45:48 BST 2009
