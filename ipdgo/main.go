@@ -109,10 +109,16 @@ func (Dumper) Field(kind uint8, data []byte) {
 		default:
 			println(x)
 		}
+	case FIELD_APPDATA:
+		println("App data")
+		dumphex(data)
+	case FIELD_HRT:
+		println("HRT")
+		dumphex(data)
 	default:
+		println("Field type", kind, "len", len(data))
 		dumphex(data)
 	}
-
 }
 
 func (Dumper) Record(dbid uint16, ver uint8, rhandle uint16, ruid uint32) {
