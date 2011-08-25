@@ -17,9 +17,11 @@ const (
 )
 
 type Processor interface {
+	Header(version uint8, numdb uint16)
 	Database(i int, name string)
 	Field(kind uint8, data []byte)
 	Record(dbid uint16, ver uint8, rhandle uint16, ruid uint32)
+	End()
 }
 
 type parser struct {
@@ -130,10 +132,7 @@ func (p parser) run() os.Error {
 		return errf("bad sep")
 	}
 
-	// print header
-	fmt.Printf(`<?xml version="1.0" encoding="UTF-8"?>`+
-		"\n<ipd version=\"%d\">\n",
-		h.Ver)
+	p.proc.Header(h.Ver, h.Numdb)
 
 	// read database names
 	for i := uint16(0); i < h.Numdb; i++ {
@@ -172,7 +171,8 @@ func (p parser) run() os.Error {
 		}
 	}
 
-	fmt.Printf("</ipd>\n")
+	p.proc.End()
+
 	return nil
 }
 
@@ -196,6 +196,12 @@ func (Dumper) Record(dbid uint16, ver uint8, rhandle uint16, ruid uint32) {
 func (Dumper) Database(i int, name string) {
 	println("db:", i, name)
 }
+
+func (Dumper) Header(ver uint8, numdb uint16) {
+	println("ipd ver", ver, "numdb", numdb)
+}
+
+func (Dumper) End() {}
 
 func main() {
 	if len(os.Args) < 2 {
