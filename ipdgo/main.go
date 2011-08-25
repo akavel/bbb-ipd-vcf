@@ -9,10 +9,21 @@ import (
 	"reflect"
 )
 
+//------------------------
+
 // http://na.blackberry.com/eng/devjournals/resources/journals/jan_2006/ipd_file_format.jsp
 const (
 	MAGIC = "Inter@ctive Pager Backup/Restore File\n"
 )
+
+type Processor interface {
+
+}
+
+type parser struct {
+	r    io.Reader
+	proc Processor
+}
 
 type filehdr struct {
 	Magic   [len(MAGIC)]byte
@@ -71,13 +82,13 @@ func sizeof(x interface{}) int {
 	return bin.TotalSize(reflect.ValueOf(x))
 }
 
-func parsefield(r io.Reader, left uint32) (uint32, os.Error) {
+func (p parser) parsefield(left uint32) (uint32, os.Error) {
 	var fh fieldhdr
 	size := uint32(sizeof(fh))
 	if left < size {
 		return 0, errf("field header underflow (is %d, need %d)", left, size)
 	}
-	err := bin.Read(r, bin.LittleEndian, &fh)
+	err := bin.Read(p.r, bin.LittleEndian, &fh)
 	if err != nil {
 		return 0, err
 	}
@@ -89,7 +100,7 @@ func parsefield(r io.Reader, left uint32) (uint32, os.Error) {
 	}
 	// TODO: must we check for fh.Len == 0  =>  return 0 ?
 	buf := make([]byte, fh.Len)
-	err = bin.Read(r, nil, buf)
+	err = bin.Read(p.r, nil, buf)
 	if err != nil {
 		return 0, err
 	}
@@ -99,10 +110,10 @@ func parsefield(r io.Reader, left uint32) (uint32, os.Error) {
 	return left, nil
 }
 
-func ipd2xml(f io.Reader) os.Error {
+func (p parser) run() os.Error {
 	// parse header
 	var h filehdr
-	err := bin.Read(f, bin.BigEndian, &h)
+	err := bin.Read(p.r, bin.BigEndian, &h)
 	if err != nil {
 		return err
 	}
@@ -125,7 +136,7 @@ func ipd2xml(f io.Reader) os.Error {
 	// read database names
 	db := make([]string, 0)
 	for i := uint16(0); i < h.Numdb; i++ {
-		s, err := readname(f)
+		s, err := readname(p.r)
 		if err != nil {
 			return err
 		}
@@ -134,7 +145,7 @@ func ipd2xml(f io.Reader) os.Error {
 
 	for {
 		var dh dbhdr
-		err := bin.Read(f, bin.LittleEndian, &dh)
+		err := bin.Read(p.r, bin.LittleEndian, &dh)
 		if err == os.EOF { //TODO: check if read < sizeof(dh)
 			break
 		}
@@ -149,12 +160,12 @@ func ipd2xml(f io.Reader) os.Error {
 			return errf("rlen too small")
 		}
 		rest -= uint32(sizeof(rh))
-		err = bin.Read(f, bin.LittleEndian, &rh)
+		err = bin.Read(p.r, bin.LittleEndian, &rh)
 		println("rh: ver", rh.Ver, "handle", rh.Rhandle, "uid", fmt.Sprintf("%x", rh.Ruid))
 
 		for rest > 0 {
 			println("rest", rest)
-			rest, err = parsefield(f, rest)
+			rest, err = p.parsefield(rest)
 			if err != nil {
 				return err
 			}
@@ -164,6 +175,14 @@ func ipd2xml(f io.Reader) os.Error {
 	fmt.Printf("</ipd>\n")
 	return nil
 }
+
+func Parse(r io.Reader, proc Processor) os.Error {
+	return parser{r, proc}.run()
+}
+
+//-------------
+
+type Dumper struct{}
 
 func main() {
 	if len(os.Args) < 2 {
@@ -179,7 +198,7 @@ func main() {
 	}
 	//defer f.Close()
 
-	err = ipd2xml(bufio.NewReader(f))
+	err = Parse(bufio.NewReader(f), Dumper{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %s\n", err.String())
 		os.Exit(3)
