@@ -17,7 +17,7 @@ const (
 )
 
 type Processor interface {
-
+	Field(kind uint8, data []byte)
 }
 
 type parser struct {
@@ -92,7 +92,6 @@ func (p parser) parsefield(left uint32) (uint32, os.Error) {
 	if err != nil {
 		return 0, err
 	}
-	println("fh.len", fh.Len)
 	left -= size
 
 	if left < uint32(fh.Len) {
@@ -104,8 +103,9 @@ func (p parser) parsefield(left uint32) (uint32, os.Error) {
 	if err != nil {
 		return 0, err
 	}
-	dumphex(buf)
 	left -= uint32(fh.Len)
+
+	p.proc.Field(fh.Type, buf)
 
 	return left, nil
 }
@@ -183,6 +183,11 @@ func Parse(r io.Reader, proc Processor) os.Error {
 //-------------
 
 type Dumper struct{}
+
+func (Dumper) Field(kind uint8, data []byte) {
+	println("fh.len", len(data))
+	dumphex(data)
+}
 
 func main() {
 	if len(os.Args) < 2 {
