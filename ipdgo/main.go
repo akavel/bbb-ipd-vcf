@@ -46,15 +46,15 @@ func (Dumper) Field(kind uint8, data []byte) {
 		print("Source: ")
 		switch data[0] {
 		case 0:
-			println("Unkown\n")
+			println("Unkown")
 		case 1:
-			println("Serial\n")
+			println("Serial")
 		case 2:
-			println("OTA\n")
+			println("OTA")
 		case 3, 4:
-			println("Code\n")
+			println("Code")
 		case 5:
-			println("Editor\n")
+			println("Editor")
 		default:
 			println(data[0])
 		}
@@ -67,7 +67,7 @@ func (Dumper) Field(kind uint8, data []byte) {
 			"Orphan",
 			"Disallowed"}
 		x := "?"
-		num := u32le(data[0:4])
+		num := u32le(data)
 		if num < uint32(len(types)) {
 			x = types[num]
 		}
@@ -80,6 +80,35 @@ func (Dumper) Field(kind uint8, data []byte) {
 		println("Name:", string(data))
 	case FIELD_DSID:
 		println("DSID:", string(data))
+	case FIELD_DESCRIPTION:
+		println("Description:", string(data))
+	case FIELD_RUID:
+		fmt.Printf("RUID: %x\n", u32le(data))
+	case FIELD_USERID:
+		fmt.Printf("User ID: %d\n", int32(u32le(data)))
+	case FIELD_COMPRESSION:
+		print("Compression: ")
+		if len(data) < 4 {
+			println("none?")
+			break
+		}
+		println(int32(u32le(data)))
+	case FIELD_ENCRYPTION:
+		print("Encryption: ")
+		if len(data) < 4 {
+			println("none?")
+			break
+		}
+		switch x := int32(u32le(data)); x {
+		case 6:
+			println("RIM BIS")
+		case 2:
+			println("RIM")
+		case 1:
+			println("none")
+		default:
+			println(x)
+		}
 	default:
 		dumphex(data)
 	}
