@@ -18,6 +18,7 @@ const (
 
 type Processor interface {
 	Field(kind uint8, data []byte)
+	Record(dbid uint16, ver uint8, rhandle uint16, ruid uint32)
 }
 
 type parser struct {
@@ -152,7 +153,6 @@ func (p parser) run() os.Error {
 		if err != nil {
 			return err
 		}
-		println("rlen", dh.Rlen)
 
 		var rh recordhdr
 		rest := dh.Rlen
@@ -161,10 +161,10 @@ func (p parser) run() os.Error {
 		}
 		rest -= uint32(sizeof(rh))
 		err = bin.Read(p.r, bin.LittleEndian, &rh)
-		println("rh: ver", rh.Ver, "handle", rh.Rhandle, "uid", fmt.Sprintf("%x", rh.Ruid))
+
+		p.proc.Record(dh.Dbid, rh.Ver, rh.Rhandle, rh.Ruid)
 
 		for rest > 0 {
-			println("rest", rest)
 			rest, err = p.parsefield(rest)
 			if err != nil {
 				return err
@@ -187,6 +187,10 @@ type Dumper struct{}
 func (Dumper) Field(kind uint8, data []byte) {
 	println("fh.len", len(data))
 	dumphex(data)
+}
+
+func (Dumper) Record(dbid uint16, ver uint8, rhandle uint16, ruid uint32) {
+	println("rh: ver", ver, "handle", rhandle, "uid", fmt.Sprintf("%x", ruid))
 }
 
 func main() {
