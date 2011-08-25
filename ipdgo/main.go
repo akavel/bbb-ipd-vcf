@@ -32,6 +32,11 @@ type recordhdr struct {
 	Ruid    uint32
 }
 
+type fieldhdr struct {
+	Len  uint16
+	Type uint8
+}
+
 func readname(r io.Reader) (string, os.Error) {
 	var length uint16
 	err := bin.Read(r, bin.LittleEndian, &length)
@@ -50,6 +55,31 @@ func readname(r io.Reader) (string, os.Error) {
 
 func errf(s string, args ...interface{}) os.Error {
 	return os.NewError(fmt.Sprintf(s, args...))
+}
+
+func parsefield(r io.Reader, left uint32) (uint32, os.Error) {
+	var fh fieldhdr
+	if left < uint32(unsafe.Sizeof(fh)) {
+		return 0, errf("field header underflow (is %d, need %d)", left, unsafe.Sizeof(fh))
+	}
+	err := bin.Read(r, bin.LittleEndian, &fh)
+	if err != nil {
+		return 0, err
+	}
+	println("fh.len", fh.Len)
+	left -= uint32(unsafe.Sizeof(fh))
+
+	if left < uint32(fh.Len) {
+		return 0, errf("field data underflow (is %d, need %d)", left, fh.Len)
+	}
+	// TODO: must we check for fh.Len == 0  =>  return 0 ?
+	buf := make([]byte, fh.Len)
+	err = bin.Read(r, nil, buf)
+	if err != nil {
+		return 0, err
+	}
+
+	return left, nil
 }
 
 func ipd2xml(f io.Reader) os.Error {
@@ -94,21 +124,23 @@ func ipd2xml(f io.Reader) os.Error {
 		if err != nil {
 			return err
 		}
+		println("rlen", dh.Rlen)
 
 		var rh recordhdr
-		if dh.Rlen < uint32(unsafe.Sizeof(rh)) {
+		rest := dh.Rlen
+		if rest < uint32(unsafe.Sizeof(rh)) {
 			return errf("rlen too small")
 		}
+		rest -= uint32(unsafe.Sizeof(rh))
+		err = bin.Read(f, bin.LittleEndian, &rh)
+		println("rh: ver", rh.Ver, "handle", rh.Rhandle, "uid", fmt.Sprintf("%x", rh.Ruid))
 
-		dh.Rlen -= uint32(unsafe.Sizeof(rh))
-		data := make([]byte, dh.Rlen)
-		err = bin.Read(f, nil, &data)
-		if err != nil {
-			return err
+		for rest > 0 {
+			rest, err = parsefield(f, rest)
+			if err != nil {
+				return err
+			}
 		}
-		//TODO: save data
-		println("data[", len(data), "]")
-
 	}
 
 	fmt.Printf("</ipd>\n")
