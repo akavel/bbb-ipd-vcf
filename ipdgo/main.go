@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"unsafe"
+	"reflect"
 )
 
 // http://na.blackberry.com/eng/devjournals/resources/journals/jan_2006/ipd_file_format.jsp
@@ -57,17 +57,32 @@ func errf(s string, args ...interface{}) os.Error {
 	return os.NewError(fmt.Sprintf(s, args...))
 }
 
+func dumphex(buf []byte) {
+	for i := 0; i < len(buf); i++ {
+		fmt.Printf(" %02x", buf[i])
+		if i%17 == 16 {
+			fmt.Println()
+		}
+	}
+	fmt.Println()
+}
+
+func sizeof(x interface{}) int {
+	return bin.TotalSize(reflect.ValueOf(x))
+}
+
 func parsefield(r io.Reader, left uint32) (uint32, os.Error) {
 	var fh fieldhdr
-	if left < uint32(unsafe.Sizeof(fh)) {
-		return 0, errf("field header underflow (is %d, need %d)", left, unsafe.Sizeof(fh))
+	size := uint32(sizeof(fh))
+	if left < size {
+		return 0, errf("field header underflow (is %d, need %d)", left, size)
 	}
 	err := bin.Read(r, bin.LittleEndian, &fh)
 	if err != nil {
 		return 0, err
 	}
 	println("fh.len", fh.Len)
-	left -= uint32(unsafe.Sizeof(fh))
+	left -= size
 
 	if left < uint32(fh.Len) {
 		return 0, errf("field data underflow (is %d, need %d)", left, fh.Len)
@@ -78,6 +93,8 @@ func parsefield(r io.Reader, left uint32) (uint32, os.Error) {
 	if err != nil {
 		return 0, err
 	}
+	dumphex(buf)
+	left -= uint32(fh.Len)
 
 	return left, nil
 }
@@ -128,14 +145,15 @@ func ipd2xml(f io.Reader) os.Error {
 
 		var rh recordhdr
 		rest := dh.Rlen
-		if rest < uint32(unsafe.Sizeof(rh)) {
+		if rest < uint32(sizeof(rh)) {
 			return errf("rlen too small")
 		}
-		rest -= uint32(unsafe.Sizeof(rh))
+		rest -= uint32(sizeof(rh))
 		err = bin.Read(f, bin.LittleEndian, &rh)
 		println("rh: ver", rh.Ver, "handle", rh.Rhandle, "uid", fmt.Sprintf("%x", rh.Ruid))
 
 		for rest > 0 {
+			println("rest", rest)
 			rest, err = parsefield(f, rest)
 			if err != nil {
 				return err
