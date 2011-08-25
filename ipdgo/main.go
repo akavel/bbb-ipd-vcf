@@ -17,6 +17,7 @@ const (
 )
 
 type Processor interface {
+	Database(i int, name string)
 	Field(kind uint8, data []byte)
 	Record(dbid uint16, ver uint8, rhandle uint16, ruid uint32)
 }
@@ -135,13 +136,12 @@ func (p parser) run() os.Error {
 		h.Ver)
 
 	// read database names
-	db := make([]string, 0)
 	for i := uint16(0); i < h.Numdb; i++ {
 		s, err := readname(p.r)
 		if err != nil {
 			return err
 		}
-		db = append(db, s)
+		p.proc.Database(int(i), s)
 	}
 
 	for {
@@ -191,6 +191,10 @@ func (Dumper) Field(kind uint8, data []byte) {
 
 func (Dumper) Record(dbid uint16, ver uint8, rhandle uint16, ruid uint32) {
 	println("rh: ver", ver, "handle", rhandle, "uid", fmt.Sprintf("%x", ruid))
+}
+
+func (Dumper) Database(i int, name string) {
+	println("db:", i, name)
 }
 
 func main() {
