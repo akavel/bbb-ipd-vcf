@@ -53,20 +53,23 @@ func (Dumper) Field(kind uint8, data []byte) {
 	}
 	switch kind {
 	case FIELD_SOURCE:
-		print("Source: ")
+		fmt.Printf("Source: ")
 		switch data[0] {
 		case 0:
-			println("Unkown")
+			fmt.Println("Unkown")
 		case 1:
-			println("Serial")
+			fmt.Println("Serial")
 		case 2:
-			println("OTA")
+			fmt.Println("OTA")
 		case 3, 4:
-			println("Code")
+			fmt.Println("Code")
 		case 5:
-			println("Editor")
+			fmt.Println("Editor")
 		default:
-			println(data[0])
+			fmt.Printf("? 0x%x\n", data)
+		}
+		if len(data) > 1 {
+			dumphex(data)
 		}
 	case FIELD_TYPE:
 		types := []string{"Active",
@@ -78,20 +81,26 @@ func (Dumper) Field(kind uint8, data []byte) {
 			"Disallowed"}
 		if len(data) < 4 {
 			println("Type: ??")
+			dumphex(data)
 			break
 		}
 		num := u32le(data)
 		if num >= uint32(len(types)) {
 			println("Type: ?")
-			break
+		} else {
+			println("Type:", types[num])
 		}
-		println("Type:", types[num])
+		if len(data) > 4 {
+			dumphex(data)
+		}
 	case FIELD_UID:
 		println("UID:", string(data))
 	case FIELD_CID:
 		println("CID:", string(data))
 	case FIELD_NAME:
 		println("Name:", string(data))
+	case 4:
+		println("SMS text (?):", string(data))
 	case FIELD_DSID:
 		println("DSID:", string(data))
 	case FIELD_DESCRIPTION:
