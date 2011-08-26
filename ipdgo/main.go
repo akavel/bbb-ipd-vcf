@@ -27,10 +27,16 @@ func dumphex(buf []byte) {
 	for i := 0; i < len(buf); i++ {
 		fmt.Printf(" %02x", buf[i])
 		if i%17 == 16 {
-			fmt.Println()
+			fmt.Printf("  | %s\n", string(buf[i-16:i+1]))
 		}
 	}
-	fmt.Println()
+	tail := len(buf) % 17
+	if tail != 0 {
+		for i := tail; i < 17; i++ {
+			fmt.Printf("   ")
+		}
+		fmt.Printf("  | %s\n", string(buf[len(buf)-tail:]))
+	}
 }
 
 func u32le(buf []byte) uint32 {
@@ -41,6 +47,10 @@ type Dumper struct{}
 
 func (Dumper) Field(kind uint8, data []byte) {
 	println("--fh.len", len(data))
+	if len(data) == 0 {
+		println(" ZERO len, type", kind)
+		return
+	}
 	switch kind {
 	case FIELD_SOURCE:
 		print("Source: ")
@@ -66,12 +76,16 @@ func (Dumper) Field(kind uint8, data []byte) {
 			"Unknown",
 			"Orphan",
 			"Disallowed"}
-		x := "?"
-		num := u32le(data)
-		if num < uint32(len(types)) {
-			x = types[num]
+		if len(data) < 4 {
+			println("Type: ??")
+			break
 		}
-		println("Type:", x)
+		num := u32le(data)
+		if num >= uint32(len(types)) {
+			println("Type: ?")
+			break
+		}
+		println("Type:", types[num])
 	case FIELD_UID:
 		println("UID:", string(data))
 	case FIELD_CID:
@@ -85,6 +99,10 @@ func (Dumper) Field(kind uint8, data []byte) {
 	case FIELD_RUID:
 		fmt.Printf("RUID: %x\n", u32le(data))
 	case FIELD_USERID:
+		if len(data) < 4 {
+			fmt.Printf("User ID: ?? 0x%x", data)
+			break
+		}
 		fmt.Printf("User ID: %d\n", int32(u32le(data)))
 	case FIELD_COMPRESSION:
 		print("Compression: ")
