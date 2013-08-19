@@ -52,6 +52,8 @@ function stringreader(s)
 		end
 	}})
 end
+-- Author: sdonovan
+-- License: MIT/X11 
 -- [first] begin dump at 16 byte-aligned offset containing 'first' byte
 -- [last] end dump at 16 byte-aligned offset containing 'last' byte
 function hex_dump(buf,first,last)
@@ -90,9 +92,11 @@ function parse(f)
 			break
 		end
 		
-		_ = readn(f, 7) -- drop some data which seems not useful to us {Ver uint8; Rhandle uint16; Ruid uint32}
-		recLen = recLen - 7
-		recs[#recs+1] = {value=readn(f, recLen)}
+		if dbId ~= 0xffff then -- WTF? some empty (?) database record
+			_ = readn(f, 7) -- drop some data which seems not useful to us {Ver uint8; Rhandle uint16; Ruid uint32}
+			recLen = recLen - 7
+			recs[#recs+1] = {value=readn(f, recLen)}
+		end
 	end
 	return recs
 end
@@ -121,7 +125,7 @@ function decode(recs, indent)
 			decode(parseRec(v.value), indent .. "  ")
 		elseif v.kind==0x20 then
 			print(indent .. sprintf("NAME=%q", clearname(v.value, 0)))
-		elseif (v.kind>=0x06 and v.kind<=0x09) or v.kind==0x13 then
+		elseif (v.kind>=0x06 and v.kind<=0x09) or v.kind==0x13 or v.kind==0x12 then
 			print(indent .. sprintf("PHONE=%q", clearname(v.value, 0)))
 		elseif v.kind==0x01 then
 			print(indent .. sprintf("EMAIL=%q", clearname(v.value, 0)))
@@ -137,19 +141,37 @@ function decode(recs, indent)
 			print(indent .. sprintf("AREA_CODE?=%q", clearname(v.value, 0)))
 		elseif v.kind==0x48 then
 			print(indent .. sprintf("COUNTRY?=%q", clearname(v.value, 0)))
-		elseif v.kind==0x52 then
+		elseif v.kind==0x52 or v.kind==0x53 then
 			print(indent .. sprintf("BIRTHDAY?=%q", clearname(v.value, 0)))
+		elseif v.kind==0x37 then
+			print(indent .. sprintf("TITLE?=%q", clearname(v.value, 0)))
 		elseif (v.kind==0x54 or v.kind==0x02) and
 				v.value==string.char(0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff) then
 			-- skip
 		elseif v.kind==0x51 and v.value==string.char(0, 0, 0, 0) then
 			-- skip
-		elseif v.kind==0x03 and v.value=='Default' then
-			-- skip
-		elseif v.kind==0x05 or v.kind==0x55 then
+		elseif v.kind==0x03 then
+			if v.value=='Default' then
+				-- skip
+			else
+				print(indent .. sprintf("PHONE?=%q", clearname(v.value, 0)))
+			end
+		elseif v.kind==0x05 or v.kind==0x55 or v.kind==0x34 or v.kind==0x35 or v.kind==0x2c then
 			-- skip; unknown meaning
 		elseif v.kind==0x4d then
 			-- skip; image
+		elseif v.kind==0xa0 then
+			-- WTF? names starting with NUL byte
+			assert(v.value:sub(1,1):byte() == 0)
+			print(indent .. sprintf("NAME_UTF8?=%q", v.value:sub(2)))
+		elseif v.kind==0xa3 then
+			-- WTF? address starting with NUL byte
+			assert(v.value:sub(1,1):byte() == 0)
+			print(indent .. sprintf("ADDRESS_UTF8?=%q", v.value:sub(2)))
+		elseif v.kind==0xa1 then
+			-- WTF? company starting with NUL byte
+			assert(v.value:sub(1,1):byte() == 0)
+			print(indent .. sprintf("COMPANY_UTF8?=%q", v.value:sub(2)))
 		else
 			print(indent .. sprintf("KIND=0x%02x:", v.kind))
 			hex_dump(v.value)
