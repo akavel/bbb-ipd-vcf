@@ -52,6 +52,17 @@ function stringreader(s)
 		end
 	}})
 end
+-- [first] begin dump at 16 byte-aligned offset containing 'first' byte
+-- [last] end dump at 16 byte-aligned offset containing 'last' byte
+function hex_dump(buf,first,last)
+	local function align(n) return math.ceil(n/16) * 16 end
+	for i=(align((first or 1)-16)+1),align(math.min(last or #buf,#buf)) do
+		if (i-1) % 16 == 0 then io.write(string.format('%08X  ', i-1)) end
+		io.write( i > #buf and '   ' or string.format('%02X ', buf:byte(i)) )
+		if i %  8 == 0 then io.write(' ') end
+		if i % 16 == 0 then io.write( buf:sub(i-16+1, i):gsub('%c','.'), '\n' ) end
+	end
+end
 
 function parse(f)
 	-- file header
@@ -75,16 +86,15 @@ function parse(f)
 	while true do
 		local dbId = read16le(f)
 		local recLen = read32le(f)
+		if dbId == nil then
+			break
+		end
 		
 		_ = readn(f, 7) -- drop some data which seems not useful to us {Ver uint8; Rhandle uint16; Ruid uint32}
 		recLen = recLen - 7
-		rec = parseRec(readn(f, recLen))
-		for _, v in ipairs(rec) do
-			
-			--print(sprintf("0x%02x %q", v.kind, v.value))
-		end
-		recs[#recs+1] = rec
+		recs[#recs+1] = {value=readn(f, recLen)}
 	end
+	return recs
 end
 
 function parseRec(buf)
@@ -98,8 +108,52 @@ function parseRec(buf)
 		if fieldlen == nil then
 			return t
 		end
-
+		
 		t[#t+1] = {kind=kind, value=value}
+	end
+end
+
+function decode(recs, indent)
+	local indent = indent or ''
+	for _, v in ipairs(recs) do
+		if v.kind==nil or v.kind==0x0a then
+			print(indent .. "RECORD")
+			decode(parseRec(v.value), indent .. "  ")
+		elseif v.kind==0x20 then
+			print(indent .. sprintf("NAME=%q", clearname(v.value, 0)))
+		elseif (v.kind>=0x06 and v.kind<=0x09) or v.kind==0x13 then
+			print(indent .. sprintf("PHONE=%q", clearname(v.value, 0)))
+		elseif v.kind==0x01 then
+			print(indent .. sprintf("EMAIL=%q", clearname(v.value, 0)))
+		elseif v.kind==0x23 or v.kind==0x24 or v.kind==0x3d then
+			print(indent .. sprintf("ADDRESS=%q", clearname(v.value, 0)))
+		elseif v.kind==0x26 or v.kind==0x45 then
+			print(indent .. sprintf("CITY=%q", clearname(v.value, 0)))
+		elseif v.kind==0x21 then
+			print(indent .. sprintf("COMPANY=%q", clearname(v.value, 0)))
+		elseif v.kind==0x40 then
+			print(indent .. sprintf("COMMENT?=%q", clearname(v.value, 0)))
+		elseif v.kind==0x47 or v.kind==0x28 then
+			print(indent .. sprintf("AREA_CODE?=%q", clearname(v.value, 0)))
+		elseif v.kind==0x48 then
+			print(indent .. sprintf("COUNTRY?=%q", clearname(v.value, 0)))
+		elseif v.kind==0x52 then
+			print(indent .. sprintf("BIRTHDAY?=%q", clearname(v.value, 0)))
+		elseif (v.kind==0x54 or v.kind==0x02) and
+				v.value==string.char(0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff) then
+			-- skip
+		elseif v.kind==0x51 and v.value==string.char(0, 0, 0, 0) then
+			-- skip
+		elseif v.kind==0x03 and v.value=='Default' then
+			-- skip
+		elseif v.kind==0x05 or v.kind==0x55 then
+			-- skip; unknown meaning
+		elseif v.kind==0x4d then
+			-- skip; image
+		else
+			print(indent .. sprintf("KIND=0x%02x:", v.kind))
+			hex_dump(v.value)
+		end
 	end
 end
 
@@ -110,8 +164,10 @@ function main()
 	end
 	
 	local f = assert(io.open(arg[1], 'rb'))
-	parse(f)
+	recs = parse(f)
 	f:close()
+	
+	decode(recs)
 end
 
 main()
