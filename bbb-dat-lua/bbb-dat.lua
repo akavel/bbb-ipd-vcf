@@ -156,7 +156,7 @@ function decode(recs, indent)
 	local indent = indent or ''
 	for _, v in ipairs(recs) do
 		if v.kind==nil or v.kind==0x0a then
-			print(indent .. "RECORD")
+			--print(indent .. "RECORD")
 			decode(parseRec(v.value), indent .. "  ")
 		elseif (v.kind==0x54 or v.kind==0x02) and v.value==string.char(0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff) then
 			-- skip
@@ -169,11 +169,15 @@ function decode(recs, indent)
 		elseif v.kind==0x4d then
 			-- skip; image
 		elseif kinds[v.kind] ~= nil then
-			print(indent .. sprintf("%s=%q", kinds[v.kind], clearname(v.value, 0)))
+			local kind = kinds[v.kind]
+			v[kind] = clearname(v.value, 0)
+			--print(indent .. sprintf("%s=%q", kind, v[kind]))
 		elseif kinds[-v.kind] ~= nil then
 			-- UTF-8 encoded, starts with a NUL byte
 			assert(v.value:sub(1,1):byte() == 0)
-			print(indent .. sprintf("%s=%q", kinds[-v.kind], v.value:sub(2)))
+			local kind = kinds[-v.kind]
+			v[kind] = v.value:sub(2)
+			--print(indent .. sprintf("%s=%q", kind, v[kind]))
 		else
 			print(indent .. sprintf("KIND=0x%02x:", v.kind))
 			hex_dump(v.value)
