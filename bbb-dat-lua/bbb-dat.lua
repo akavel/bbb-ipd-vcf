@@ -118,60 +118,62 @@ function parseRec(buf)
 end
 
 function decode(recs, indent)
+	local kinds_rev = {
+		EMAIL=0x01,
+		WORK_FAX=0x03, -- note: special handling
+		PHONE_WORK=0x06,
+		PHONE_HOME=0x07, -- ?
+		PHONE_MOBILE=0x08,
+		PHONE_PAGER=0x09,
+		--PHONE_WORK2=0x10,
+		PHONE_OTHER=0x12,
+		PHONE_MOBILE2=0x13,
+		NAME=0x20,
+		COMPANY=0x21,
+		WORK_ADDRESS1=0x23,
+		WORK_ADDRESS2=0x24,
+		WORK_CITY=0x26,
+		WORK_POSTCODE=0x28,
+		TITLE=0x37,
+		HOME_ADDRESS1=0x3d,
+		NOTES=0x40,
+		HOME_CITY=0x45,
+		HOME_POSTCODE=0x47,
+		HOME_COUNTRY=0x48,
+		BIRTHDAY=0x52,
+		ANNIVERSARY=0x53,
+		
+		-- UTF-8 encoded
+		NAME_UTF8= -0xa0,
+		COMPANY_UTF8= -0xa1,
+		WORK_ADDRESS1_UTF8= -0xa3,
+	}
+	local kinds = {}
+	for k, v in pairs(kinds_rev) do
+		kinds[v]=k
+	end
+
 	local indent = indent or ''
 	for _, v in ipairs(recs) do
 		if v.kind==nil or v.kind==0x0a then
 			print(indent .. "RECORD")
 			decode(parseRec(v.value), indent .. "  ")
-		elseif v.kind==0x20 then
-			print(indent .. sprintf("NAME=%q", clearname(v.value, 0)))
-		elseif (v.kind>=0x06 and v.kind<=0x09) or v.kind==0x13 or v.kind==0x12 then
-			print(indent .. sprintf("PHONE=%q", clearname(v.value, 0)))
-		elseif v.kind==0x01 then
-			print(indent .. sprintf("EMAIL=%q", clearname(v.value, 0)))
-		elseif v.kind==0x23 or v.kind==0x24 or v.kind==0x3d then
-			print(indent .. sprintf("ADDRESS=%q", clearname(v.value, 0)))
-		elseif v.kind==0x26 or v.kind==0x45 then
-			print(indent .. sprintf("CITY=%q", clearname(v.value, 0)))
-		elseif v.kind==0x21 then
-			print(indent .. sprintf("COMPANY=%q", clearname(v.value, 0)))
-		elseif v.kind==0x40 then
-			print(indent .. sprintf("COMMENT?=%q", clearname(v.value, 0)))
-		elseif v.kind==0x47 or v.kind==0x28 then
-			print(indent .. sprintf("AREA_CODE?=%q", clearname(v.value, 0)))
-		elseif v.kind==0x48 then
-			print(indent .. sprintf("COUNTRY?=%q", clearname(v.value, 0)))
-		elseif v.kind==0x52 or v.kind==0x53 then
-			print(indent .. sprintf("BIRTHDAY?=%q", clearname(v.value, 0)))
-		elseif v.kind==0x37 then
-			print(indent .. sprintf("TITLE?=%q", clearname(v.value, 0)))
-		elseif (v.kind==0x54 or v.kind==0x02) and
-				v.value==string.char(0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff) then
+		elseif (v.kind==0x54 or v.kind==0x02) and v.value==string.char(0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff) then
 			-- skip
 		elseif v.kind==0x51 and v.value==string.char(0, 0, 0, 0) then
 			-- skip
-		elseif v.kind==0x03 then
-			if v.value=='Default' then
-				-- skip
-			else
-				print(indent .. sprintf("PHONE?=%q", clearname(v.value, 0)))
-			end
+		elseif v.kind==0x03 and v.value=='Default' then
+			-- skip
 		elseif v.kind==0x05 or v.kind==0x55 or v.kind==0x34 or v.kind==0x35 or v.kind==0x2c then
 			-- skip; unknown meaning
 		elseif v.kind==0x4d then
 			-- skip; image
-		elseif v.kind==0xa0 then
-			-- WTF? names starting with NUL byte
+		elseif kinds[v.kind] ~= nil then
+			print(indent .. sprintf("%s=%q", kinds[v.kind], clearname(v.value, 0)))
+		elseif kinds[-v.kind] ~= nil then
+			-- UTF-8 encoded, starts with a NUL byte
 			assert(v.value:sub(1,1):byte() == 0)
-			print(indent .. sprintf("NAME_UTF8?=%q", v.value:sub(2)))
-		elseif v.kind==0xa3 then
-			-- WTF? address starting with NUL byte
-			assert(v.value:sub(1,1):byte() == 0)
-			print(indent .. sprintf("ADDRESS_UTF8?=%q", v.value:sub(2)))
-		elseif v.kind==0xa1 then
-			-- WTF? company starting with NUL byte
-			assert(v.value:sub(1,1):byte() == 0)
-			print(indent .. sprintf("COMPANY_UTF8?=%q", v.value:sub(2)))
+			print(indent .. sprintf("%s=%q", kinds[-v.kind], v.value:sub(2)))
 		else
 			print(indent .. sprintf("KIND=0x%02x:", v.kind))
 			hex_dump(v.value)
