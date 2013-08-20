@@ -10,7 +10,7 @@ import (
 
 type RECORD struct {
 	XMLName xml.Name `xml:"RECORD"`
-	EMAIL   string
+	EMAIL   string   //
 
 	WORK_FAX      string
 	PHONE_WORK    string
@@ -20,27 +20,27 @@ type RECORD struct {
 	PHONE_OTHER   string
 	PHONE_MOBILE2 string
 
-	NAME []string
+	NAME []string //
 
-	COMPANY string
+	COMPANY string //
 
 	WORK_ADDRESS1 string
 	WORK_ADDRESS2 string
 	WORK_CITY     string
 	WORK_POSTCODE string
 
-	TITLE string
+	TITLE string //
 
 	HOME_ADDRESS1 string
 
-	NOTES string
+	NOTES string //
 
 	HOME_CITY     string
 	HOME_POSTCODE string
 	HOME_COUNTRY  string
 
 	BIRTHDAY    string
-	ANNIVERSARY string
+	ANNIVERSARY string /* TODO: only vCard 4.0+ */
 }
 
 type IPD struct {
@@ -87,6 +87,14 @@ func main() {
 			v.GivenNames = []string{r.NAME[0]}
 			v.FormattedName = r.NAME[0] + v.FormattedName
 		}
+
+		if r.COMPANY != "" {
+			v.Org = []string{r.COMPANY}
+		}
+
+		v.Title = r.TITLE
+		v.Note = r.NOTES
+		v.Birthday = r.BIRTHDAY
 
 		book.Contacts = append(book.Contacts, v)
 	}
