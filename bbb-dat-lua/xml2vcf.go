@@ -24,10 +24,10 @@ type RECORD struct {
 
 	COMPANY string //
 
-	WORK_ADDRESS1 string
-	WORK_ADDRESS2 string
-	WORK_CITY     string
-	WORK_POSTCODE string
+	WORK_ADDRESS1 string //
+	WORK_ADDRESS2 string //
+	WORK_CITY     string //
+	WORK_POSTCODE string //
 
 	TITLE string //
 
@@ -95,6 +95,19 @@ func main() {
 		v.Title = r.TITLE
 		v.Note = r.NOTES
 		v.Birthday = r.BIRTHDAY
+
+		if r.WORK_ADDRESS1+
+			r.WORK_ADDRESS2+
+			r.WORK_CITY+
+			r.WORK_POSTCODE != "" {
+			v.Addresses = append(v.Addresses, vcard.Address{
+				Type:            []string{"work"},
+				Locality:        r.WORK_CITY,
+				PostalCode:      r.WORK_POSTCODE,
+				Street:          r.WORK_ADDRESS1,
+				ExtendedAddress: r.WORK_ADDRESS2,
+			})
+		}
 
 		book.Contacts = append(book.Contacts, v)
 	}
