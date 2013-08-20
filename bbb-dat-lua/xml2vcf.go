@@ -1,5 +1,7 @@
 package main
 
+// vCard 3.0 RFC: http://tools.ietf.org/html/rfc2426
+
 import (
 	"bitbucket.org/akavel/vcard"
 	"encoding/xml"
@@ -12,13 +14,13 @@ type RECORD struct {
 	XMLName xml.Name `xml:"RECORD"`
 	EMAIL   string   //
 
-	WORK_FAX      string
-	PHONE_WORK    string
-	PHONE_HOME    string
-	PHONE_MOBILE  string
-	PHONE_PAGER   string
-	PHONE_OTHER   string
-	PHONE_MOBILE2 string
+	WORK_FAX      string //
+	PHONE_WORK    string //
+	PHONE_HOME    string //
+	PHONE_MOBILE  string //
+	PHONE_PAGER   string //
+	PHONE_OTHER   string //
+	PHONE_MOBILE2 string // NOTE: added identical as MOBILE
 
 	NAME []string //
 
@@ -31,15 +33,15 @@ type RECORD struct {
 
 	TITLE string //
 
-	HOME_ADDRESS1 string
+	HOME_ADDRESS1 string //
 
 	NOTES string //
 
-	HOME_CITY     string
-	HOME_POSTCODE string
-	HOME_COUNTRY  string
+	HOME_CITY     string //
+	HOME_POSTCODE string //
+	HOME_COUNTRY  string //
 
-	BIRTHDAY    string
+	BIRTHDAY    string //
 	ANNIVERSARY string /* TODO: only vCard 4.0+ */
 }
 
@@ -48,11 +50,14 @@ type IPD struct {
 	Records []RECORD `xml:"RECORD>RECORD"`
 }
 
-func maybe(s string) []string {
-	if len(s) == 0 {
-		return nil
+func addphone(v *vcard.VCard, number string, kind ...string) {
+	if number == "" {
+		return
 	}
-	return []string{s}
+	v.Telephones = append(v.Telephones, vcard.Telephone{
+		Type:   kind,
+		Number: number,
+	})
 }
 
 func main() {
@@ -78,6 +83,14 @@ func main() {
 			v.Emails = []vcard.Email{{Address: r.EMAIL}}
 		}
 
+		addphone(&v, r.WORK_FAX, "fax", "work")
+		addphone(&v, r.PHONE_WORK, "work")
+		addphone(&v, r.PHONE_HOME, "home")
+		addphone(&v, r.PHONE_MOBILE, "cell")
+		addphone(&v, r.PHONE_PAGER, "pager")
+		addphone(&v, r.PHONE_OTHER)
+		addphone(&v, r.PHONE_MOBILE2, "cell")
+
 		switch len(r.NAME) {
 		case 2:
 			v.FamilyNames = []string{r.NAME[1]}
@@ -95,6 +108,13 @@ func main() {
 		v.Title = r.TITLE
 		v.Note = r.NOTES
 		v.Birthday = r.BIRTHDAY
+
+		if r.ANNIVERSARY != "" {
+			if v.Note != "" {
+				v.Note += "\n"
+			}
+			v.Note += "Anniversary: " + r.ANNIVERSARY
+		}
 
 		if r.WORK_ADDRESS1+
 			r.WORK_ADDRESS2+
