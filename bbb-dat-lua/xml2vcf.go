@@ -102,10 +102,22 @@ func main() {
 			r.WORK_POSTCODE != "" {
 			v.Addresses = append(v.Addresses, vcard.Address{
 				Type:            []string{"work"},
-				Locality:        r.WORK_CITY,
-				PostalCode:      r.WORK_POSTCODE,
 				Street:          r.WORK_ADDRESS1,
 				ExtendedAddress: r.WORK_ADDRESS2,
+				Locality:        r.WORK_CITY,
+				PostalCode:      r.WORK_POSTCODE,
+			})
+		}
+		if r.HOME_ADDRESS1+
+			r.HOME_CITY+
+			r.HOME_POSTCODE+
+			r.HOME_COUNTRY != "" {
+			v.Addresses = append(v.Addresses, vcard.Address{
+				Type:        []string{"home"},
+				Street:      r.HOME_ADDRESS1,
+				Locality:    r.HOME_CITY,
+				PostalCode:  r.HOME_POSTCODE,
+				CountryName: r.HOME_COUNTRY,
 			})
 		}
 
