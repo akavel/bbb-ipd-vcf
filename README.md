@@ -10,7 +10,7 @@ Procedure
 ---------
 
 1. Install Lua (http://lua.org) and Go (http://golang.org).
-2. Rename `BlackBerry Bold 9780 (08-12-2013).bbb` to `backup.zip`.
+2. Rename your `BlackBerry Bold 9780 (08-12-2013).bbb` to `backup.zip`.
 3. Unpack `backup.zip`.
 4. In file `Manifest.xml`, find fragment like this: `<Database uid="125" recordcount="509">Address Book - All</Database>`, then note the `uid` value (here: 125).
 5. Find `uid` .dat file, e.g. `Databases\125.dat` (this is actually an .ipd formatted file).
