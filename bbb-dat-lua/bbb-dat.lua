@@ -157,7 +157,8 @@ function decode(recs, indent)
 	for _, v in ipairs(recs) do
 		if v.kind==nil or v.kind==0x0a then
 			--print(indent .. "RECORD")
-			decode(parseRec(v.value), indent .. "  ")
+			v.value = parseRec(v.value)
+			decode(v.value, indent .. "  ")
 		elseif (v.kind==0x54 or v.kind==0x02) and v.value==string.char(0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff) then
 			-- skip
 		elseif v.kind==0x51 and v.value==string.char(0, 0, 0, 0) then
@@ -170,19 +171,34 @@ function decode(recs, indent)
 			-- skip; image
 		elseif kinds[v.kind] ~= nil then
 			local kind = kinds[v.kind]
-			v[kind] = clearname(v.value, 0)
+			v[kind] = v[kind] or {}
+			table.insert(v[kind], clearname(v.value, 0))
 			--print(indent .. sprintf("%s=%q", kind, v[kind]))
 		elseif kinds[-v.kind] ~= nil then
 			-- UTF-8 encoded, starts with a NUL byte
 			assert(v.value:sub(1,1):byte() == 0)
 			local kind = kinds[-v.kind]
-			v[kind] = v.value:sub(2)
+			kind = kind:sub(1, #kind-5) -- strip _UTF8
+			v[kind] = v[kind] or {}
+			table.insert(v[kind], v.value:sub(2))
 			--print(indent .. sprintf("%s=%q", kind, v[kind]))
 		else
 			print(indent .. sprintf("KIND=0x%02x:", v.kind))
 			hex_dump(v.value)
 		end
 	end
+end
+
+function vcardif(record, code, vcard)
+	if record[code]==nil then
+		return
+	end
+	for _, v in ipairs(record[code]) do
+		print(sprintf('%s:%s', vcard, v))
+	end
+end
+function phoneif(record, code, vcard)
+	vcardif(record, code, 'TEL;TYPE='..vcard)
 end
 
 function main()
@@ -196,6 +212,58 @@ function main()
 	f:close()
 	
 	decode(recs)
+	
+	for _, r in ipairs(recs) do
+		r = r.value[4].value
+		for k,v in pairs(r) do 
+			for kk,vv in pairs(v) do print(kk,vv) end
+		end
+		--r = r.value
+		print('BEGIN:VCARD')
+		print('VERSION:3.0')
+		print(sprintf('N:%s;%s;;%s;',
+			r.NAME[2] or '', r.NAME[1] or '', r.TITLE[1] or ''))
+		print(sprintf('FN:%s', table.concat(r.NAME, ' ')))
+		phoneif(r, 'WORK_FAX', 'FAX')
+		phoneif(r, 'PHONE_MOBILE', 'CELL')
+		phoneif(r, 'PHONE_MOBILE2', 'CELL')
+		phoneif(r, 'PHONE_WORK', 'WORK')
+		phoneif(r, 'PHONE_HOME', 'HOME')
+		phoneif(r, 'PHONE_PAGER', 'PAGER')
+		phoneif(r, 'PHONE_OTHER', 'OTHER')
+		vcardif(r, 'COMPANY', 'ORG')
+		vcardif(r, 'EMAIL', 'EMAIL')
+		
+		local t = {}
+		if r.WORK_ADDRESS1 then table.insert(t, table.concat(r.WORK_ADDRESS1, ' ')) end
+		if r.WORK_ADDRESS2 then table.insert(t, table.concat(r.WORK_ADDRESS2, ' ')) end
+		local adr = sprintf(';;%s;%s;;%s;%s',
+			table.concat(t, ' '),
+			table.concat(r.WORK_CITY, ' '),
+			table.concat(r.WORK_POSTCODE, ' '),
+			table.concat(r.WORK_COUNTRY, ' '))
+		if adr ~= ';;;;;;' then
+			print('ADR;TYPE=WORK:', adr)
+		end
+		
+		local t = {}
+		if r.HOME_ADDRESS1 then table.insert(t, table.concat(r.HOME_ADDRESS1, ' ')) end
+		if r.HOME_ADDRESS2 then table.insert(t, table.concat(r.HOME_ADDRESS2, ' ')) end
+		local adr = sprintf(';;%s;%s;;%s;%s',
+			table.concat(t, ' '),
+			table.concat(r.HOME_CITY, ' '),
+			table.concat(r.HOME_POSTCODE, ' '),
+			table.concat(r.HOME_COUNTRY, ' '))
+		if adr ~= ';;;;;;' then
+			print('ADR;TYPE=HOME:', adr)
+		end
+		
+		if r.NOTES then
+			print('NOTE:', table.concat(r.NOTES, ' '):gsub('[\r\n]', '\\n'))
+		end
+		
+		print('END:VCARD')
+	end
 end
 
 main()
