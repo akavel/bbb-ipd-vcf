@@ -305,10 +305,10 @@ function decode(recs, indent)
 	local indent = indent or ''
 	for _, v in ipairs(recs) do
 		if v.kind==nil or v.kind==0x0a then
-			print(indent .. "<record>")
+			print(indent .. "<RECORD>")
 			v.value = parseRec(v.value)
 			decode(v.value, indent .. "  ")
-			print(indent .. "</record>")
+			print(indent .. "</RECORD>")
 		elseif (v.kind==0x54 or v.kind==0x02) and v.value==string.char(0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff) then
 			-- skip
 		elseif v.kind==0x51 and v.value==string.char(0, 0, 0, 0) then
@@ -321,13 +321,13 @@ function decode(recs, indent)
 			-- skip; image
 		elseif kinds[v.kind] ~= nil then
 			local kind = kinds[v.kind]
-			print(indent .. xmlnode(string.lower(kind), ipd_to_utf8(clearname(v.value, 0))))
+			print(indent .. xmlnode(kind, ipd_to_utf8(clearname(v.value, 0))))
 		elseif kinds[-v.kind] ~= nil then
 			-- UTF-8 encoded, starts with a NUL byte
 			assert(v.value:sub(1,1):byte() == 0)
 			local kind = kinds[-v.kind]
 			kind = kind:sub(1, #kind-5) -- strip _UTF8
-			print(indent .. xmlnode(string.lower(kind), v.value:sub(2)))
+			print(indent .. xmlnode(kind, v.value:sub(2)))
 		else
 			print(indent .. xmlnode(("KIND_0x%02x"):format(v.kind), v.value:gsub('.', function(x)
 				return ("%02x"):format(x)
@@ -354,11 +354,15 @@ function main()
 		os.exit(1)
 	end
 	
+	print('<IPD>')
+	
 	local f = assert(io.open(arg[1], 'rb'))
 	recs = parse(f)
 	f:close()
 	
 	decode(recs)
+	
+	print('</IPD>')
 end
 
 main()
